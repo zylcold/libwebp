@@ -7,7 +7,7 @@ Pod::Spec.new do |s|
   s.license         = { :type => "BSD", :file => "COPYING" }
   s.author          = "Google Inc."
   s.platform        = :ios, "7.0.0"
-  s.source          = { :git => "https://github.com/Uhouzz/libwebp.git", :tag => "v0.5.1" }
+  s.source          = { :git => "https://github.com/Uhouzz/libwebp.git", :tag => "v#{s.version}" }
 
   s.compiler_flags  = "-D_THREAD_SAFE"
   s.requires_arc    = false 
