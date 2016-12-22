@@ -20,8 +20,8 @@ Pod::Spec.new do |s|
   s.subspec 'webp' do |wp|
     wp.source_files = "src/utils/*.{h,c}", "src/dsp/*.{h,c}", "src/enc/*.{h,c}", "src/dec/*.{h,c}", 'src/webp/*.h'
     wp.private_header_files = "src/utils/*.h", "src/dsp/*.h", "src/enc/*.h", "src/dec/*.h", 'src/webp/*.h'
-    wp.header_files = "src/utils/*.h", "src/dsp/*.h", "src/enc/*.h", "src/dec/*.h", 'src/webp/*.h'
-    wp.header_dir = webp
+    wp.public_header_files = "src/utils/*.h", "src/dsp/*.h", "src/enc/*.h", "src/dec/*.h", 'src/webp/*.h'
+    wp.header_dir = 'webp'
   end
 
 end
