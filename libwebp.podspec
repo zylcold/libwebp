@@ -3,11 +3,11 @@ Pod::Spec.new do |s|
   s.name            = "libwebp"
   s.version         = "0.5.1.1"
   s.summary         = "Library to encode and decode images in WebP format."
-  s.homepage        = "https://github.com/Uhouzz/libwebp"
+  s.homepage        = "https://github.com/zylcold/libwebp"
   s.license         = { :type => "BSD", :file => "COPYING" }
   s.author          = "Google Inc."
   s.platform        = :ios, "7.0.0"
-  s.source          = { :git => "https://github.com/Uhouzz/libwebp.git", :tag => "v#{s.version}" }
+  s.source          = { :git => "https://github.com/zylcold/libwebp.git", :tag => "v#{s.version}" }
 
   s.compiler_flags  = "-D_THREAD_SAFE"
   s.requires_arc    = false 
