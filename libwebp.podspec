@@ -1,6 +1,6 @@
 
 Pod::Spec.new do |s|
-  s.name            = "Uhouzz-libwebp"
+  s.name            = "libwebp"
   s.version         = "0.5.1.1"
   s.summary         = "Library to encode and decode images in WebP format."
   s.homepage        = "https://github.com/Uhouzz/libwebp"
@@ -13,7 +13,7 @@ Pod::Spec.new do |s|
   s.requires_arc    = false 
 
   s.xcconfig = { 
-    'USER_HEADER_SEARCH_PATHS' => '$(inherited) $(SRCROOT)/Uhouzz-libwebp/src'
+    'USER_HEADER_SEARCH_PATHS' => '$(inherited) $(SRCROOT)/libwebp/src'
   }
 
   # Subspecs
