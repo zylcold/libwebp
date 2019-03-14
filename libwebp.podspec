@@ -40,15 +40,14 @@ Pod::Spec.new do |s|
     wp.header_dir = "src/dec"
   end
 
+  s.subspec 'demux' do |wp|
+    wp.source_files = "src/demux/*.{h,c}"
+    wp.header_dir = "src/demux"
+  end
   
-  # s.subspec 'demux' do |wp|
-  #   wp.source_files = "src/demux/*.{h,c}"
-  #   wp.dependency 'libwebp/core'
-  # end
-  
-  # s.subspec 'mux' do |wp|
-  #   wp.source_files = "src/mux/*.{h,c}"
-  #   wp.dependency 'libwebp/core'
-  # end
+  s.subspec 'mux' do |wp|
+    wp.source_files = "src/mux/*.{h,c}"
+    wp.header_dir = "src/mux"
+  end
 
 end
