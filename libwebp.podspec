@@ -13,41 +13,42 @@ Pod::Spec.new do |s|
   s.requires_arc    = false 
 
   s.xcconfig = { 
-    'USER_HEADER_SEARCH_PATHS' => '$(inherited) ${PODS_ROOT}/libwebp/**'
+    'USER_HEADER_SEARCH_PATHS' => '$(inherited) ${PODS_ROOT}/libwebp/core/**'
   }
 
   # Subspecs
   s.subspec 'webp' do |wp|
     wp.source_files = 'src/webp/*.h'
-    wp.header_dir = "webp"
-
+    wp.header_dir = "src/webp"
   end
   
-  s.subspec 'core' do |wp|
-    wp.source_files = "src/utils/*.{h,c}", "src/dsp/*.{h,c}", "src/enc/*.{h,c}", "src/dec/*.{h,c}", 'src/webp/*.h'
-    wp.dependencies = 'libwebp/webp'
-  end
   s.subspec 'utils' do |wp|
-    wp.dependencies = 'libwebp/core'
+    wp.source_files = 'src/utils/*.{h,c}'
+    wp.header_dir = "src/utils"
   end
   s.subspec 'dsp' do |wp|
-    wp.dependencies = 'libwebp/core'
+    wp.source_files = 'src/dsp/*.{h,c}'
+    wp.header_dir = "src/dsp"
   end
   s.subspec 'enc' do |wp|
-    wp.dependencies = 'libwebp/core'
+    wp.source_files = 'src/enc/*.{h,c}'
+    wp.header_dir = "src/enc"
   end
+
   s.subspec 'dec' do |wp|
-    wp.dependencies = 'libwebp/core'
+    wp.source_files = 'src/dec/*.{h,c}'
+    wp.header_dir = "src/dec"
   end
+
   
-  s.subspec 'demux' do |wp|
-    wp.source_files = "src/demux/*.{h,c}"
-    wp.dependencies = 'libwebp/core'
-  end
+  # s.subspec 'demux' do |wp|
+  #   wp.source_files = "src/demux/*.{h,c}"
+  #   wp.dependency 'libwebp/core'
+  # end
   
-  s.subspec 'mux' do |wp|
-    wp.source_files = "src/mux/*.{h,c}"
-    wp.dependencies = 'libwebp/core'
-  end
+  # s.subspec 'mux' do |wp|
+  #   wp.source_files = "src/mux/*.{h,c}"
+  #   wp.dependency 'libwebp/core'
+  # end
 
 end
