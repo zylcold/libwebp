@@ -24,6 +24,7 @@
 #include "../imageio/image_dec.h"
 #include "../imageio/imageio_util.h"
 #include "./stopwatch.h"
+#include "./unicode.h"
 #include "webp/encode.h"
 
 #ifndef WEBP_DLL
@@ -88,7 +89,8 @@ static int ReadPicture(const char* const filename, WebPPicture* const pic,
     }
   }
   if (!ok) {
-    fprintf(stderr, "Error! Could not process file %s\n", filename);
+    WFPRINTF(stderr, "Error! Could not process file %s\n",
+             (const W_CHAR*)filename);
   }
   free((void*)data);
   return ok;
@@ -114,7 +116,8 @@ static int ReadPicture(const char* const filename, WebPPicture* const pic,
   }
  End:
   if (!ok) {
-    fprintf(stderr, "Error! Could not process file %s\n", filename);
+    WFPRINTF(stderr, "Error! Could not process file %s\n",
+             (const W_CHAR*)filename);
   }
   free((void*)data);
   return ok;
@@ -140,10 +143,11 @@ static void PrintByteCount(const int bytes[4], int total_size,
   fprintf(stderr, "| %7d  (%.1f%%)\n", total, 100.f * total / total_size);
 }
 
-static void PrintPercents(const int counts[4], int total) {
+static void PrintPercents(const int counts[4]) {
   int s;
+  const int total = counts[0] + counts[1] + counts[2] + counts[3];
   for (s = 0; s < 4; ++s) {
-    fprintf(stderr, "|      %2d%%", 100 * counts[s] / total);
+    fprintf(stderr, "|      %2d%%", (int)(100. * counts[s] / total + .5));
   }
   fprintf(stderr, "| %7d\n", total);
 }
@@ -184,9 +188,10 @@ static void PrintExtraInfoLossless(const WebPPicture* const pic,
   if (short_output) {
     fprintf(stderr, "%7d %2.2f\n", stats->coded_size, stats->PSNR[3]);
   } else {
-    fprintf(stderr, "File:      %s\n", file_name);
+    WFPRINTF(stderr, "File:      %s\n", (const W_CHAR*)file_name);
     fprintf(stderr, "Dimension: %d x %d\n", pic->width, pic->height);
-    fprintf(stderr, "Output:    %d bytes\n", stats->coded_size);
+    fprintf(stderr, "Output:    %d bytes (%.2f bpp)\n", stats->coded_size,
+            8.f * stats->coded_size / pic->width / pic->height);
     PrintFullLosslessInfo(stats, "ARGB");
   }
 }
@@ -202,20 +207,23 @@ static void PrintExtraInfoLossy(const WebPPicture* const pic, int short_output,
     const int num_i16 = stats->block_count[1];
     const int num_skip = stats->block_count[2];
     const int total = num_i4 + num_i16;
-    fprintf(stderr, "File:      %s\n", file_name);
+    WFPRINTF(stderr, "File:      %s\n", (const W_CHAR*)file_name);
     fprintf(stderr, "Dimension: %d x %d%s\n",
             pic->width, pic->height,
             stats->alpha_data_size ? " (with alpha)" : "");
     fprintf(stderr, "Output:    "
-            "%d bytes Y-U-V-All-PSNR %2.2f %2.2f %2.2f   %2.2f dB\n",
+            "%d bytes Y-U-V-All-PSNR %2.2f %2.2f %2.2f   %2.2f dB\n"
+            "           (%.2f bpp)\n",
             stats->coded_size,
-            stats->PSNR[0], stats->PSNR[1], stats->PSNR[2], stats->PSNR[3]);
+            stats->PSNR[0], stats->PSNR[1], stats->PSNR[2], stats->PSNR[3],
+            8.f * stats->coded_size / pic->width / pic->height);
     if (total > 0) {
       int totals[4] = { 0, 0, 0, 0 };
-      fprintf(stderr, "block count:  intra4: %d\n"
-                      "              intra16: %d  (-> %.2f%%)\n",
-              num_i4, num_i16, 100.f * num_i16 / total);
-      fprintf(stderr, "              skipped block: %d (%.2f%%)\n",
+      fprintf(stderr, "block count:  intra4:     %6d  (%.2f%%)\n"
+                      "              intra16:    %6d  (%.2f%%)\n"
+                      "              skipped:    %6d  (%.2f%%)\n",
+              num_i4, 100.f * num_i4 / total,
+              num_i16, 100.f * num_i16 / total,
               num_skip, 100.f * num_skip / total);
       fprintf(stderr, "bytes used:  header:         %6d  (%.1f%%)\n"
                       "             mode-partition: %6d  (%.1f%%)\n",
@@ -239,7 +247,7 @@ static void PrintExtraInfoLossy(const WebPPicture* const pic, int short_output,
         PrintByteCount(stats->residual_bytes[2], stats->coded_size, totals);
       }
       fprintf(stderr, "    macroblocks:  ");
-      PrintPercents(stats->segment_size, total);
+      PrintPercents(stats->segment_size);
       fprintf(stderr, "      quantizer:  ");
       PrintValues(stats->segment_quant);
       fprintf(stderr, "   filter level:  ");
@@ -297,31 +305,31 @@ static int DumpPicture(const WebPPicture* const picture, const char* PGM_name) {
   const int uv_width = (picture->width + 1) / 2;
   const int uv_height = (picture->height + 1) / 2;
   const int stride = (picture->width + 1) & ~1;
+  const uint8_t* src_y = picture->y;
+  const uint8_t* src_u = picture->u;
+  const uint8_t* src_v = picture->v;
+  const uint8_t* src_a = picture->a;
   const int alpha_height =
       WebPPictureHasTransparency(picture) ? picture->height : 0;
   const int height = picture->height + uv_height + alpha_height;
-  FILE* const f = fopen(PGM_name, "wb");
+  FILE* const f = WFOPEN(PGM_name, "wb");
   if (f == NULL) return 0;
   fprintf(f, "P5\n%d %d\n255\n", stride, height);
   for (y = 0; y < picture->height; ++y) {
-    if (fwrite(picture->y + y * picture->y_stride, picture->width, 1, f) != 1) {
-      return 0;
-    }
+    if (fwrite(src_y, picture->width, 1, f) != 1) return 0;
     if (picture->width & 1) fputc(0, f);  // pad
+    src_y += picture->y_stride;
   }
   for (y = 0; y < uv_height; ++y) {
-    if (fwrite(picture->u + y * picture->uv_stride, uv_width, 1, f) != 1) {
-      return 0;
-    }
-    if (fwrite(picture->v + y * picture->uv_stride, uv_width, 1, f) != 1) {
-      return 0;
-    }
+    if (fwrite(src_u, uv_width, 1, f) != 1) return 0;
+    if (fwrite(src_v, uv_width, 1, f) != 1) return 0;
+    src_u += picture->uv_stride;
+    src_v += picture->uv_stride;
   }
   for (y = 0; y < alpha_height; ++y) {
-    if (fwrite(picture->a + y * picture->a_stride, picture->width, 1, f) != 1) {
-      return 0;
-    }
+    if (fwrite(src_a, picture->width, 1, f) != 1) return 0;
     if (picture->width & 1) fputc(0, f);  // pad
+    src_a += picture->a_stride;
   }
   fclose(f);
   return 1;
@@ -463,8 +471,9 @@ static int WriteWebPWithMetadata(FILE* const out,
     } else {
       const int is_lossless = !memcmp(webp, "VP8L", kTagSize);
       if (is_lossless) {
-        // Presence of alpha is stored in the 29th bit of VP8L data.
-        if (webp[kChunkHeaderSize + 3] & (1 << 5)) flags |= kAlphaFlag;
+        // Presence of alpha is stored in the 37th bit (29th after the
+        // signature) of VP8L data.
+        if (webp[kChunkHeaderSize + 4] & (1 << 4)) flags |= kAlphaFlag;
       }
       ok = ok && (fwrite(kVP8XHeader, kChunkHeaderSize, 1, out) == 1);
       ok = ok && WriteLE32(out, flags);
@@ -486,10 +495,10 @@ static int WriteWebPWithMetadata(FILE* const out,
       *metadata_written |= METADATA_XMP;
     }
     return ok;
-  } else {
-    // No metadata, just write the original image file.
-    return (fwrite(webp, webp_size, 1, out) == 1);
   }
+
+  // No metadata, just write the original image file.
+  return (fwrite(webp, webp_size, 1, out) == 1);
 }
 
 //------------------------------------------------------------------------------
@@ -549,6 +558,8 @@ static void HelpLong(void) {
   printf("  -strong ................ use strong filter instead "
                                      "of simple (default)\n");
   printf("  -nostrong .............. use simple filter instead of strong\n");
+  printf("  -sharp_yuv ............. use sharper (and slower) RGB->YUV "
+                                     "conversion\n");
   printf("  -partition_limit <int> . limit quality to fit the 512k limit on\n");
   printf("                           "
          "the first partition (0=no degradation ... 100=full)\n");
@@ -577,9 +588,6 @@ static void HelpLong(void) {
   printf("  -near_lossless <int> ... use near-lossless image\n"
          "                           preprocessing (0..100=off), "
          "default=100\n");
-#ifdef WEBP_EXPERIMENTAL_FEATURES
-  printf("  -delta_palettization ... use delta palettization\n");
-#endif  // WEBP_EXPERIMENTAL_FEATURES
   printf("  -hint <string> ......... specify image characteristics hint,\n");
   printf("                           one of: photo, picture or graph\n");
 
@@ -658,32 +666,34 @@ int main(int argc, const char *argv[]) {
   Metadata metadata;
   Stopwatch stop_watch;
 
+  INIT_WARGV(argc, argv);
+
   MetadataInit(&metadata);
   WebPMemoryWriterInit(&memory_writer);
   if (!WebPPictureInit(&picture) ||
       !WebPPictureInit(&original_picture) ||
       !WebPConfigInit(&config)) {
     fprintf(stderr, "Error! Version mismatch!\n");
-    return -1;
+    FREE_WARGV_AND_RETURN(-1);
   }
 
   if (argc == 1) {
     HelpShort();
-    return 0;
+    FREE_WARGV_AND_RETURN(0);
   }
 
   for (c = 1; c < argc; ++c) {
     int parse_error = 0;
     if (!strcmp(argv[c], "-h") || !strcmp(argv[c], "-help")) {
       HelpShort();
-      return 0;
+      FREE_WARGV_AND_RETURN(0);
     } else if (!strcmp(argv[c], "-H") || !strcmp(argv[c], "-longhelp")) {
       HelpLong();
-      return 0;
+      FREE_WARGV_AND_RETURN(0);
     } else if (!strcmp(argv[c], "-o") && c < argc - 1) {
-      out_file = argv[++c];
+      out_file = (const char*)GET_WARGV(argv, ++c);
     } else if (!strcmp(argv[c], "-d") && c < argc - 1) {
-      dump_file = argv[++c];
+      dump_file = (const char*)GET_WARGV(argv, ++c);
       config.show_compressed = 1;
     } else if (!strcmp(argv[c], "-print_psnr")) {
       config.show_compressed = 1;
@@ -748,11 +758,6 @@ int main(int argc, const char *argv[]) {
     } else if (!strcmp(argv[c], "-near_lossless") && c < argc - 1) {
       config.near_lossless = ExUtilGetInt(argv[++c], 0, &parse_error);
       config.lossless = 1;  // use near-lossless only with lossless
-#ifdef WEBP_EXPERIMENTAL_FEATURES
-    } else if (!strcmp(argv[c], "-delta_palettization")) {
-      config.delta_palettization = 1;
-      config.lossless = 1;  // use delta-palettization only with lossless
-#endif  // WEBP_EXPERIMENTAL_FEATURES
     } else if (!strcmp(argv[c], "-hint") && c < argc - 1) {
       ++c;
       if (!strcmp(argv[c], "photo")) {
@@ -787,6 +792,8 @@ int main(int argc, const char *argv[]) {
       config.filter_type = 0;
     } else if (!strcmp(argv[c], "-sharpness") && c < argc - 1) {
       config.filter_sharpness = ExUtilGetInt(argv[++c], 0, &parse_error);
+    } else if (!strcmp(argv[c], "-sharp_yuv")) {
+      config.use_sharp_yuv = 1;
     } else if (!strcmp(argv[c], "-pass") && c < argc - 1) {
       config.pass = ExUtilGetInt(argv[++c], 0, &parse_error);
     } else if (!strcmp(argv[c], "-pre") && c < argc - 1) {
@@ -814,7 +821,7 @@ int main(int argc, const char *argv[]) {
       const int version = WebPGetEncoderVersion();
       printf("%d.%d.%d\n",
              (version >> 16) & 0xff, (version >> 8) & 0xff, version & 0xff);
-      return 0;
+      FREE_WARGV_AND_RETURN(0);
     } else if (!strcmp(argv[c], "-progress")) {
       show_progress = 1;
     } else if (!strcmp(argv[c], "-quiet")) {
@@ -876,8 +883,7 @@ int main(int argc, const char *argv[]) {
         if (i == kNumTokens) {
           fprintf(stderr, "Error! Unknown metadata type '%.*s'\n",
                   (int)(token - start), start);
-          HelpLong();
-          return -1;
+          FREE_WARGV_AND_RETURN(-1);
         }
         start = token + 1;
       }
@@ -891,19 +897,19 @@ int main(int argc, const char *argv[]) {
     } else if (!strcmp(argv[c], "-v")) {
       verbose = 1;
     } else if (!strcmp(argv[c], "--")) {
-      if (c < argc - 1) in_file = argv[++c];
+      if (c < argc - 1) in_file = (const char*)GET_WARGV(argv, ++c);
       break;
     } else if (argv[c][0] == '-') {
       fprintf(stderr, "Error! Unknown option '%s'\n", argv[c]);
       HelpLong();
-      return -1;
+      FREE_WARGV_AND_RETURN(-1);
     } else {
-      in_file = argv[c];
+      in_file = (const char*)GET_WARGV(argv, c);
     }
 
     if (parse_error) {
       HelpLong();
-      return -1;
+      FREE_WARGV_AND_RETURN(-1);
     }
   }
   if (in_file == NULL) {
@@ -945,14 +951,16 @@ int main(int argc, const char *argv[]) {
   // Read the input. We need to decide if we prefer ARGB or YUVA
   // samples, depending on the expected compression mode (this saves
   // some conversion steps).
-  picture.use_argb = (config.lossless || config.preprocessing > 0 ||
+  picture.use_argb = (config.lossless || config.use_sharp_yuv ||
+                      config.preprocessing > 0 ||
                       crop || (resize_w | resize_h) > 0);
   if (verbose) {
     StopwatchReset(&stop_watch);
   }
   if (!ReadPicture(in_file, &picture, keep_alpha,
                    (keep_metadata == 0) ? NULL : &metadata)) {
-    fprintf(stderr, "Error! Cannot read input picture file '%s'\n", in_file);
+    WFPRINTF(stderr, "Error! Cannot read input picture file '%s'\n",
+             (const W_CHAR*)in_file);
     goto Error;
   }
   picture.progress_hook = (show_progress && !quiet) ? ProgressReport : NULL;
@@ -968,14 +976,15 @@ int main(int argc, const char *argv[]) {
 
   // Open the output
   if (out_file != NULL) {
-    const int use_stdout = !strcmp(out_file, "-");
-    out = use_stdout ? ImgIoUtilSetBinaryMode(stdout) : fopen(out_file, "wb");
+    const int use_stdout = !WSTRCMP(out_file, "-");
+    out = use_stdout ? ImgIoUtilSetBinaryMode(stdout) : WFOPEN(out_file, "wb");
     if (out == NULL) {
-      fprintf(stderr, "Error! Cannot open output file '%s'\n", out_file);
+      WFPRINTF(stderr, "Error! Cannot open output file '%s'\n",
+               (const W_CHAR*)out_file);
       goto Error;
     } else {
       if (!short_output && !quiet) {
-        fprintf(stderr, "Saving file '%s'\n", out_file);
+        WFPRINTF(stderr, "Saving file '%s'\n", (const W_CHAR*)out_file);
       }
     }
     if (keep_metadata == 0) {
@@ -1009,9 +1018,52 @@ int main(int argc, const char *argv[]) {
     }
   }
   if ((resize_w | resize_h) > 0) {
+    WebPPicture picture_no_alpha;
+    if (config.exact) {
+      // If -exact, we can't premultiply RGB by A otherwise RGB is lost if A=0.
+      // We rescale an opaque copy and assemble scaled A and non-premultiplied
+      // RGB channels. This is slower but it's a very uncommon use case. Color
+      // leak at sharp alpha edges is possible.
+      if (!WebPPictureCopy(&picture, &picture_no_alpha)) {
+        fprintf(stderr, "Error! Cannot copy temporary picture\n");
+        goto Error;
+      }
+
+      // We enforced picture.use_argb = 1 above. Now, remove the alpha values.
+      {
+        int x, y;
+        uint32_t* argb_no_alpha = picture_no_alpha.argb;
+        for (y = 0; y < picture_no_alpha.height; ++y) {
+          for (x = 0; x < picture_no_alpha.width; ++x) {
+            argb_no_alpha[x] |= 0xff000000;  // Opaque copy.
+          }
+          argb_no_alpha += picture_no_alpha.argb_stride;
+        }
+      }
+
+      if (!WebPPictureRescale(&picture_no_alpha, resize_w, resize_h)) {
+        fprintf(stderr, "Error! Cannot resize temporary picture\n");
+        goto Error;
+      }
+    }
+
     if (!WebPPictureRescale(&picture, resize_w, resize_h)) {
       fprintf(stderr, "Error! Cannot resize picture\n");
       goto Error;
+    }
+
+    if (config.exact) {  // Put back the alpha information.
+      int x, y;
+      uint32_t* argb_no_alpha = picture_no_alpha.argb;
+      uint32_t* argb = picture.argb;
+      for (y = 0; y < picture_no_alpha.height; ++y) {
+        for (x = 0; x < picture_no_alpha.width; ++x) {
+          argb[x] = (argb[x] & 0xff000000) | (argb_no_alpha[x] & 0x00ffffff);
+        }
+        argb_no_alpha += picture_no_alpha.argb_stride;
+        argb += picture.argb_stride;
+      }
+      WebPPictureFree(&picture_no_alpha);
     }
   }
   if (verbose && (crop != 0 || (resize_w | resize_h) > 0)) {
@@ -1044,9 +1096,11 @@ int main(int argc, const char *argv[]) {
   // Write info
   if (dump_file) {
     if (picture.use_argb) {
-      fprintf(stderr, "Warning: can't dump file (-d option) in lossless mode.");
+      fprintf(stderr, "Warning: can't dump file (-d option) "
+                      "in lossless mode.\n");
     } else if (!DumpPicture(&picture, dump_file)) {
-      fprintf(stderr, "Warning, couldn't dump picture %s\n", dump_file);
+      WFPRINTF(stderr, "Warning, couldn't dump picture %s\n",
+               (const W_CHAR*)dump_file);
     }
   }
 
@@ -1122,7 +1176,7 @@ int main(int argc, const char *argv[]) {
     fclose(out);
   }
 
-  return return_value;
+  FREE_WARGV_AND_RETURN(return_value);
 }
 
 //------------------------------------------------------------------------------
