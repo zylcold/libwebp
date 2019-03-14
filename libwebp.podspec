@@ -13,7 +13,7 @@ Pod::Spec.new do |s|
   s.requires_arc    = false 
 
   s.xcconfig = { 
-    'USER_HEADER_SEARCH_PATHS' => '$(inherited) ${PODS_ROOT}/libwebp/core/**'
+    'USER_HEADER_SEARCH_PATHS' => '$(inherited) ${PODS_ROOT}/libwebp/**'
   }
 
   # Subspecs
